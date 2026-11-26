@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SynthWave Engine — Live DSP & Particle Physics Visualizer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          background: #0a0a10;
+          color: #e2e8f0;
+          font-family: 'Consolas', 'Courier New', monospace;
+          overflow: hidden;
+          user-select: none;
+        }
+        canvas { display: block; width: 100vw; height: 100vh; }
+
+        /* Translucent Telemetry HUD */
+        #hud {
+          position: fixed;
+          top: 16px;
+          left: 16px;
+          width: 360px;
+          background: rgba(15, 17, 26, 0.82);
+          border: 1px solid rgba(80, 90, 120, 0.6);
+          border-radius: 12px;
+          padding: 14px 16px;
+          backdrop-filter: blur(6px);
+          z-index: 10;
+        }
+        .hud-header {
+          color: #00e6ff;
+          font-weight: bold;
+          font-size: 13px;
+          margin-bottom: 6px;
+        }
+        .hud-sub {
+          color: #c8d2e6;
+          font-size: 12px;
+          margin-bottom: 10px;
+        }
+        .meter-row {
+          display: flex;
+          align-items: center;
+          margin-bottom: 7px;
+          font-size: 12px;
+        }
+        .meter-label { width: 58px; color: #d2d7e6; }
+        .meter-track {
+          flex: 1;
+          height: 10px;
+          background: #232837;
+          border-radius: 5px;
+          overflow: hidden;
+        }
+        .meter-fill { height: 100%; width: 0%; border-radius: 5px; transition: width 0.04s linear; }
+        #bar-bass { background: #a546ff; }
+        #bar-mid { background: #00dcff; }
+        #bar-treble { background: #ffeb64; }
+
+        .controls-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 10px;
+        }
+        button {
+          background: rgba(35, 42, 64, 0.9);
+          color: #e2e8f0;
+          border: 1px solid rgba(100, 116, 155, 0.5);
+          border-radius: 6px;
+          padding: 5px 9px;
+          font-family: inherit;
+          font-size: 11px;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        button:hover { border-color: #00e6ff; color: #00e6ff; }
+        button.active { background: rgba(0, 220, 255, 0.2); border-color: #00e6ff; color: #00e6ff; }
+
+        /* Center Start Overlay */
+        #overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(10, 10, 16, 0.78);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          z-index: 20;
+          padding: 20px;
+        }
+        #overlay h1 {
+          font-size: 26px;
+          color: #ffffff;
+          margin-bottom: 8px;
+          letter-spacing: 0.5px;
+        }
+        #overlay p {
+          color: #94a3b8;
+          max-width: 520px;
+          font-size: 13px;
+          line-height: 1.5;
+          margin-bottom: 22px;
+        }
+        .launch-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .btn-primary {
+          background: linear-gradient(135deg, #7c3aed, #06b6d4);
+          border: none;
+          color: #fff;
+          font-weight: bold;
+          font-size: 13px;
+          padding: 11px 20px;
+          border-radius: 8px;
+        }
+        .btn-primary:hover { opacity: 0.92; color: #fff; }
+        .btn-secondary {
+          font-size: 13px;
+          padding: 11px 18px;
+          border-radius: 8px;
+        }
+        .repo-link {
+          margin-top: 18px;
+          font-size: 12px;
+          color: #64748b;
+        }
+        .repo-link a { color: #38bdf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div id="overlay">
+    <h1>SynthWave DSP & Particle Physics Engine</h1>
+    <p>
+        Web port of the 100% Core Java engine — running a real-time 1024-sample Hann-windowed
+        Radix-2 Cooley-Tukey FFT, adaptive energy-flux beat detection, and 600 Newtonian particles.
+    </p>
+    <div class="launch-group">
+        <button class="btn-primary" id="btn-demo">▶ Launch Built-In Synth Beat</button>
+        <button class="btn-secondary" id="btn-mic">🎙 Use Live Microphone</button>
+    </div>
+    <div class="repo-link">
+        Source Architecture: <a href="https://github.com/NishchaySahoo/synthwave-audio-visualizer" target="_blank">github.com/NishchaySahoo/synthwave-audio-visualizer</a>
+    </div>
+</div>
+
+<div id="hud">
+    <div class="hud-header" id="hud-top">FPS: 60 | GAIN: 1.00x | 1: PARTICLE NEBULA</div>
+    <div class="hud-sub" id="hud-source">INPUT: STANDBY (Select Audio Source)</div>
+    <div class="meter-row">
+        <span class="meter-label">BASS</span>
+        <div class="meter-track"><div class="meter-fill" id="bar-bass"></div></div>
+    </div>
+    <div class="meter-row">
+        <span class="meter-label">MIDS</span>
+        <div class="meter-track"><div class="meter-fill" id="bar-mid"></div></div>
+    </div>
+    <div class="meter-row">
+        <span class="meter-label">TREBLE</span>
+        <div class="meter-track"><div class="meter-fill" id="bar-treble"></div></div>
+    </div>
+    <div class="controls-row">
+        <button id="m1" class="active" onclick="setMode(1)">[1] Nebula</button>
+        <button id="m2" onclick="setMode(2)">[2] Radial FFT</button>
+        <button id="m3" onclick="setMode(3)">[3] Wave</button>
+        <button onclick="adjustGain(0.25)">Gain +</button>
+        <button onclick="adjustGain(-0.25)">Gain -</button>
+        <button onclick="triggerManualBeat()">Shockwave</button>
+        <button onclick="switchAudioSource()">Switch Source</button>
+    </div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      ctx.fillStyle = '#0a0a10';
+      ctx.fillRect(0, 0, width, height);
+    });
+
+    // --- 1. RADIX-2 COOLEY-TUKEY FFT & HANN WINDOW (Ported from FFTProcessor.java) ---
+    const FFT_SIZE = 1024;
+    const hannWindow = new Float64Array(FFT_SIZE);
+    for (let i = 0; i < FFT_SIZE; i++) {
+      hannWindow[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)));
+    }
+
+    function computeFFTMagnitudes(samples) {
+      const real = new Float64Array(FFT_SIZE);
+      const imag = new Float64Array(FFT_SIZE);
+      for (let i = 0; i < FFT_SIZE; i++) {
+        real[i] = samples[i] * hannWindow[i];
+      }
+
+      // Bit-reversal permutation
+      let j = 0;
+      for (let i = 0; i < FFT_SIZE; i++) {
+        if (i < j) {
+          [real[i], real[j]] = [real[j], real[i]];
+          [imag[i], imag[j]] = [imag[j], imag[i]];
+        }
+        let m = FFT_SIZE >> 1;
+        while (m >= 1 && j >= m) {
+          j -= m;
+          m >>= 1;
+        }
+        j += m;
+      }
+
+      // Butterfly stages
+      for (let size = 2; size <= FFT_SIZE; size <<= 1) {
+        const half = size >> 1;
+        const theta = (-2 * Math.PI) / size;
+        const wStepRe = Math.cos(theta);
+        const wStepIm = Math.sin(theta);
+
+        for (let i = 0; i < FFT_SIZE; i += size) {
+          let wRe = 1.0, wIm = 0.0;
+          for (let k = 0; k < half; k++) {
+            const evenIdx = i + k;
+            const oddIdx = evenIdx + half;
+            const tRe = wRe * real[oddIdx] - wIm * imag[oddIdx];
+            const tIm = wRe * imag[oddIdx] + wIm * real[oddIdx];
+
+            real[oddIdx] = real[evenIdx] - tRe;
+            imag[oddIdx] = imag[evenIdx] - tIm;
+            real[evenIdx] += tRe;
+            imag[evenIdx] += tIm;
+
+            const nextWRe = wRe * wStepRe - wIm * wStepIm;
+            wIm = wRe * wStepIm + wIm * wStepRe;
+            wRe = nextWRe;
+          }
+        }
+      }
+
+      const mags = new Float64Array(FFT_SIZE / 2);
+      for (let i = 0; i < mags.length; i++) {
+        mags[i] = Math.hypot(real[i], imag[i]);
+      }
+      return mags;
+    }
+
+    // --- 2. SPECTRUM BAND SEPARATION (Ported from SpectrumAnalyzer.java) ---
+    function analyzeBands(mags) {
+      let bassSum = 0, midSum = 0, trebleSum = 0;
+      for (let i = 1; i <= 6; i++) bassSum += mags[i];
+      for (let i = 7; i <= 58; i++) midSum += mags[i];
+      for (let i = 59; i <= 250; i++) trebleSum += mags[i];
+
+      return {
+        bass: Math.min(1.0, (bassSum / 6) / 38.0),
+        mid: Math.min(1.0, (midSum / 52) / 14.0),
+        treble: Math.min(1.0, (trebleSum / 192) / 4.5)
+      };
+    }
+
+    // --- 3. ADAPTIVE BEAT DETECTOR (Ported from BeatDetector.java) ---
+    const bassHistory = new Float64Array(43);
+    let historyIdx = 0, historyCount = 0, cooldown = 0;
+
+    function detectBeat(currentBass) {
+      if (cooldown > 0) cooldown--;
+      let sum = 0;
+      for (let i = 0; i < historyCount; i++) sum += bassHistory[i];
+      const avg = historyCount > 0 ? sum / historyCount : 0;
+
+      bassHistory[historyIdx] = currentBass;
+      historyIdx = (historyIdx + 1) % 43;
+      if (historyCount < 43) historyCount++;
+
+      if (historyCount >= 10 && cooldown === 0 && currentBass > 0.08 && currentBass > avg * 1.35) {
+        cooldown = 10;
+        return true;
+      }
+      return false;
+    }
+
+    // --- 4. NEWTONIAN PARTICLE ENGINE (Ported from Particle.java) ---
+    class Particle {
+      constructor(cx, cy) {
+        this.x = cx;
+        this.y = cy;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.5 + Math.random() * 2.0;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.baseSize = 2.0 + Math.random() * 3.5;
+        this.orbitPref = 110 + Math.random() * 150;
+        this.hueOffset = (Math.random() - 0.5) * 55;
+      }
+
+      update(cx, cy, bass, mid, treble, beatHit) {
+        const dx = this.x - cx;
+        const dy = this.y - cy;
+        const dist = Math.hypot(dx, dy) + 0.001;
+        const rx = dx / dist, ry = dy / dist;
+        const tx = -ry, ty = rx;
+
+        const targetR = this.orbitPref + bass * 120;
+        const spring = (targetR - dist) * 0.0045;
+        const impulse = beatHit ? (14.0 + bass * 18.0) : 0.0;
+        const swirl = 0.12 + mid * 1.35;
+        const jitterX = treble > 0.15 ? (Math.random() * 2 - 1) * treble * 2.2 : 0;
+        const jitterY = treble > 0.15 ? (Math.random() * 2 - 1) * treble * 2.2 : 0;
+
+        this.vx = (this.vx + rx * (spring + impulse) + tx * swirl + jitterX) * 0.91;
+        this.vy = (this.vy + ry * (spring + impulse) + ty * swirl + jitterY) * 0.91;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 10) { this.x = 10; this.vx = Math.abs(this.vx) * 0.7; }
+        if (this.x > width - 10) { this.x = width - 10; this.vx = -Math.abs(this.vx) * 0.7; }
+        if (this.y < 10) { this.y = 10; this.vy = Math.abs(this.vy) * 0.7; }
+        if (this.y > height - 10) { this.y = height - 10; this.vy = -Math.abs(this.vy) * 0.7; }
+      }
+
+      draw(bass, mid, treble) {
+        const hue = (266 - treble * 210 - mid * 45 + this.hueOffset + 360) % 360;
+        const light = Math.min(72, 48 + treble * 24 + bass * 12);
+        const radius = (this.baseSize + bass * 4.5 + treble * 2.5) * 0.5;
+        ctx.fillStyle = `hsl(${hue}, 88%, ${light}%)`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const particles = Array.from({ length: 600 }, () => new Particle(width / 2, height / 2));
+    const shockwaves = [];
+    const radialBins = new Float64Array(64);
+    const timeBuffer = new Float32Array(FFT_SIZE);
+
+    // --- 5. WEB AUDIO PIPELINE (Built-in Synth + Live Mic) ---
+    let audioCtx = null, analyser = null, synthTimer = null, micStream = null;
+    let visualMode = 1, inputGain = 1.0, showHud = true, manualBeat = false;
+    let smoothBass = 0, smoothMid = 0, smoothTreble = 0;
+
+    function stopCurrentAudio() {
+      if (synthTimer) { clearInterval(synthTimer); synthTimer = null; }
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    }
+
+    async function startBuiltInSynth() {
+      stopCurrentAudio();
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = FFT_SIZE;
+      analyser.connect(audioCtx.destination);
+
+      let step = 0;
+      const notes = [110, 110, 146.83, 130.81, 164.81, 146.83, 196.0, 164.81];
+
+      synthTimer = setInterval(() => {
+        const now = audioCtx.currentTime;
+
+        // Kick drum on every 2nd 16th-note beat
+        if (step % 4 === 0) {
+          const kickOsc = audioCtx.createOscillator();
+          const kickGain = audioCtx.createGain();
+          kickOsc.type = 'sine';
+          kickOsc.frequency.setValueAtTime(145, now);
+          kickOsc.frequency.exponentialRampToValueAtTime(38, now + 0.14);
+          kickGain.gain.setValueAtTime(0.9, now);
+          kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          kickOsc.connect(kickGain);
+          kickGain.connect(analyser);
+          kickOsc.start(now);
+          kickOsc.stop(now + 0.29);
+        }
+
+        // Midrange bassline pulse
+        const bassOsc = audioCtx.createOscillator();
+        const bassGain = audioCtx.createGain();
+        bassOsc.type = 'sawtooth';
+        bassOsc.frequency.setValueAtTime(notes[step % notes.length], now);
+        bassGain.gain.setValueAtTime(0.22, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        bassOsc.connect(bassGain);
+        bassGain.connect(analyser);
+        bassOsc.start(now);
+        bassOsc.stop(now + 0.17);
+
+        // High-frequency treble arpeggio & hi-hat shimmer
+        if (step % 2 === 1) {
+          const hatOsc = audioCtx.createOscillator();
+          const hatGain = audioCtx.createGain();
+          hatOsc.type = 'triangle';
+          hatOsc.frequency.setValueAtTime(notes[(step * 3) % notes.length] * 16, now);
+          hatGain.gain.setValueAtTime(0.14, now);
+          hatGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+          hatOsc.connect(hatGain);
+          hatGain.connect(analyser);
+          hatOsc.start(now);
+          hatOsc.stop(now + 0.09);
+        }
+
+        step++;
+      }, 135); // ~111 BPM electronic groove
+
+      document.getElementById('hud-source').textContent = 'INPUT: SYNTHWAVE DEMO GENERATOR (111 BPM)';
+      document.getElementById('overlay').style.display = 'none';
+    }
+
+    async function startMicrophone() {
+      try {
+        stopCurrentAudio();
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const source = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = FFT_SIZE;
+        source.connect(analyser);
+
+        document.getElementById('hud-source').textContent = 'INPUT: LIVE MICROPHONE STREAM';
+        document.getElementById('overlay').style.display = 'none';
+      } catch (err) {
+        alert('Microphone access blocked or unavailable. Launching built-in synth beat instead.');
+        startBuiltInSynth();
+      }
+    }
+
+    function switchAudioSource() {
+      document.getElementById('overlay').style.display = 'flex';
+    }
+
+    document.getElementById('btn-demo').addEventListener('click', startBuiltInSynth);
+    document.getElementById('btn-mic').addEventListener('click', startMicrophone);
+
+    // --- 6. CONTROLS & RENDER LOOP ---
+    function setMode(m) {
+      visualMode = m;
+      [1, 2, 3].forEach(id => document.getElementById('m' + id).classList.toggle('active', id === m));
+    }
+    function adjustGain(delta) {
+      inputGain = Math.max(0.25, Math.min(4.0, +(inputGain + delta).toFixed(2)));
+    }
+    function triggerManualBeat() { manualBeat = true; }
+
+    window.addEventListener('keydown', e => {
+      if (e.key === '1') setMode(1);
+      if (e.key === '2') setMode(2);
+      if (e.key === '3') setMode(3);
+      if (e.key === 'ArrowUp') adjustGain(0.25);
+      if (e.key === 'ArrowDown') adjustGain(-0.25);
+      if (e.key === ' ') { e.preventDefault(); triggerManualBeat(); }
+      if (e.key.toLowerCase() === 'h') {
+        showHud = !showHud;
+        document.getElementById('hud').style.display = showHud ? 'block' : 'none';
+      }
+    });
+
+    let lastFpsTime = performance.now(), frames = 0, fps = 60;
+
+    function render(now) {
+      frames++;
+      if (now - lastFpsTime >= 1000) {
+        fps = frames;
+        frames = 0;
+        lastFpsTime = now;
+      }
+
+      let beatHit = manualBeat;
+      manualBeat = false;
+
+      if (analyser) {
+        analyser.getFloatTimeDomainData(timeBuffer);
+        for (let i = 0; i < FFT_SIZE; i++) {
+          timeBuffer[i] = Math.max(-1, Math.min(1, timeBuffer[i] * inputGain));
+        }
+
+        const mags = computeFFTMagnitudes(timeBuffer);
+        const bands = analyzeBands(mags);
+
+        smoothBass = smoothBass * 0.70 + bands.bass * 0.30;
+        smoothMid = smoothMid * 0.70 + bands.mid * 0.30;
+        smoothTreble = smoothTreble * 0.70 + bands.treble * 0.30;
+
+        for (let i = 0; i < 64; i++) {
+          const val = Math.min(1.0, mags[1 + i * 3] / 24.0);
+          radialBins[i] = radialBins[i] * 0.65 + val * 0.35;
+        }
+
+        if (detectBeat(bands.bass)) beatHit = true;
+      }
+
+      const cx = width / 2, cy = height / 2;
+      if (beatHit) shockwaves.push({ r: 55 + smoothBass * 110, alpha: 0.95 });
+
+      // Semi-transparent fade for motion ribbons
+      ctx.fillStyle = visualMode === 2 ? 'rgba(10, 10, 16, 0.30)' : 'rgba(10, 10, 16, 0.14)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Shockwaves
+      ctx.lineWidth = 2.5;
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.r += 8.5;
+        sw.alpha -= 0.026;
+        if (sw.alpha <= 0) { shockwaves.splice(i, 1); continue; }
+        ctx.strokeStyle = `rgba(160, 90, 255, ${sw.alpha})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, sw.r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Particles (Modes 1 & 3)
+      for (const p of particles) {
+        p.update(cx, cy, smoothBass, smoothMid, smoothTreble, beatHit);
+        if (visualMode === 1 || visualMode === 3) p.draw(smoothBass, smoothMid, smoothTreble);
+      }
+
+      // Radial Spectrum (Mode 2)
+      if (visualMode === 2) {
+        const baseR = 120 + smoothBass * 45;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 64; i++) {
+          const angle = (2 * Math.PI * i) / 64 - Math.PI / 2;
+          const len = 15 + radialBins[i] * 170;
+          const hue = 280 - (i / 64) * 235;
+          ctx.strokeStyle = `hsl(${hue}, 88%, 55%)`;
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(angle) * baseR, cy + Math.sin(angle) * baseR);
+          ctx.lineTo(cx + Math.cos(angle) * (baseR + len), cy + Math.sin(angle) * (baseR + len));
+          ctx.stroke();
+        }
+      }
+
+      // Oscilloscope (Mode 3)
+      if (visualMode === 3) {
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.78)';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        for (let i = 0; i < FFT_SIZE; i += 2) {
+          const x = (i / FFT_SIZE) * width;
+          const y = cy - timeBuffer[i] * 160;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      // 3-Band Harmonic Core
+      ctx.fillStyle = 'rgba(110, 30, 200, 0.55)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 42 + smoothBass * 90, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(0, 220, 255, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 30 + smoothMid * 70, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 245, 140, 0.92)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 12 + smoothTreble * 42, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Update HUD
+      const modeName = visualMode === 1 ? '1: PARTICLE NEBULA' : visualMode === 2 ? '2: RADIAL SPECTRUM' : '3: WAVE + NEBULA';
+      document.getElementById('hud-top').textContent = `FPS: ${fps} | GAIN: ${inputGain.toFixed(2)}x | ${modeName}`;
+      document.getElementById('bar-bass').style.width = `${smoothBass * 100}%`;
+      document.getElementById('bar-mid').style.width = `${smoothMid * 100}%`;
+      document.getElementById('bar-treble').style.width = `${smoothTreble * 100}%`;
+
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>
