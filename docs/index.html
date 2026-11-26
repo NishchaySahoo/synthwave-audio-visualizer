@@ -7,35 +7,36 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-          background: #0a0a10;
-          color: #e2e8f0;
+          background: #f5f6f8;
+          color: #14161a;
           font-family: 'Consolas', 'Courier New', monospace;
           overflow: hidden;
           user-select: none;
         }
         canvas { display: block; width: 100vw; height: 100vh; }
 
-        /* Translucent Telemetry HUD */
+        /* Translucent Monochrome Telemetry HUD */
         #hud {
           position: fixed;
           top: 16px;
           left: 16px;
           width: 360px;
-          background: rgba(15, 17, 26, 0.82);
-          border: 1px solid rgba(80, 90, 120, 0.6);
-          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.88);
+          border: 1px solid #d0d5dd;
+          border-radius: 10px;
           padding: 14px 16px;
-          backdrop-filter: blur(6px);
+          box-shadow: 0 4px 16px rgba(20, 22, 26, 0.06);
+          backdrop-filter: blur(8px);
           z-index: 10;
         }
         .hud-header {
-          color: #00e6ff;
+          color: #14161a;
           font-weight: bold;
           font-size: 13px;
           margin-bottom: 6px;
         }
         .hud-sub {
-          color: #c8d2e6;
+          color: #525866;
           font-size: 12px;
           margin-bottom: 10px;
         }
@@ -45,18 +46,18 @@
           margin-bottom: 7px;
           font-size: 12px;
         }
-        .meter-label { width: 58px; color: #d2d7e6; }
+        .meter-label { width: 58px; color: #343942; font-weight: bold; }
         .meter-track {
           flex: 1;
-          height: 10px;
-          background: #232837;
-          border-radius: 5px;
+          height: 9px;
+          background: #e4e7ec;
+          border-radius: 4px;
           overflow: hidden;
         }
-        .meter-fill { height: 100%; width: 0%; border-radius: 5px; transition: width 0.04s linear; }
-        #bar-bass { background: #a546ff; }
-        #bar-mid { background: #00dcff; }
-        #bar-treble { background: #ffeb64; }
+        .meter-fill { height: 100%; width: 0%; border-radius: 4px; transition: width 0.04s linear; }
+        #bar-bass { background: #14161a; }
+        #bar-mid { background: #525866; }
+        #bar-treble { background: #8a92a0; }
 
         .controls-row {
           display: flex;
@@ -65,9 +66,9 @@
           margin-top: 10px;
         }
         button {
-          background: rgba(35, 42, 64, 0.9);
-          color: #e2e8f0;
-          border: 1px solid rgba(100, 116, 155, 0.5);
+          background: #ffffff;
+          color: #2c3038;
+          border: 1px solid #cbd1da;
           border-radius: 6px;
           padding: 5px 9px;
           font-family: inherit;
@@ -75,14 +76,23 @@
           cursor: pointer;
           transition: all 0.15s;
         }
-        button:hover { border-color: #00e6ff; color: #00e6ff; }
-        button.active { background: rgba(0, 220, 255, 0.2); border-color: #00e6ff; color: #00e6ff; }
+        button:hover {
+          background: #eef0f4;
+          border-color: #14161a;
+          color: #14161a;
+        }
+        button.active {
+          background: #14161a;
+          border-color: #14161a;
+          color: #ffffff;
+        }
 
         /* Center Start Overlay */
         #overlay {
           position: fixed;
           inset: 0;
-          background: rgba(10, 10, 16, 0.78);
+          background: rgba(245, 246, 248, 0.88);
+          backdrop-filter: blur(6px);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -93,39 +103,56 @@
         }
         #overlay h1 {
           font-size: 26px;
-          color: #ffffff;
+          color: #14161a;
           margin-bottom: 8px;
           letter-spacing: 0.5px;
         }
         #overlay p {
-          color: #94a3b8;
+          color: #525866;
           max-width: 520px;
           font-size: 13px;
-          line-height: 1.5;
+          line-height: 1.55;
           margin-bottom: 22px;
         }
         .launch-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
         .btn-primary {
-          background: linear-gradient(135deg, #7c3aed, #06b6d4);
-          border: none;
-          color: #fff;
+          background: #14161a;
+          border: 1px solid #14161a;
+          color: #ffffff;
           font-weight: bold;
           font-size: 13px;
           padding: 11px 20px;
           border-radius: 8px;
         }
-        .btn-primary:hover { opacity: 0.92; color: #fff; }
+        .btn-primary:hover {
+          background: #2c3038;
+          border-color: #2c3038;
+          color: #ffffff;
+        }
         .btn-secondary {
+          background: #ffffff;
+          border: 1px solid #b8bfc9;
+          color: #14161a;
           font-size: 13px;
           padding: 11px 18px;
           border-radius: 8px;
         }
+        .btn-secondary:hover {
+          background: #e9ecf0;
+          border-color: #14161a;
+        }
         .repo-link {
           margin-top: 18px;
           font-size: 12px;
-          color: #64748b;
+          color: #6b7280;
         }
-        .repo-link a { color: #38bdf8; text-decoration: none; }
+        .repo-link a {
+          color: #14161a;
+          font-weight: bold;
+          text-decoration: none;
+          border-bottom: 1px solid #9ca3af;
+        }
+        .repo-link a:hover { border-bottom-color: #14161a; }
     </style>
 </head>
 <body>
@@ -182,11 +209,11 @@
     window.addEventListener('resize', () => {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
-      ctx.fillStyle = '#0a0a10';
+      ctx.fillStyle = '#f5f6f8';
       ctx.fillRect(0, 0, width, height);
     });
 
-    // --- 1. RADIX-2 COOLEY-TUKEY FFT & HANN WINDOW (Ported from FFTProcessor.java) ---
+    // --- 1. RADIX-2 COOLEY-TUKEY FFT & HANN WINDOW ---
     const FFT_SIZE = 1024;
     const hannWindow = new Float64Array(FFT_SIZE);
     for (let i = 0; i < FFT_SIZE; i++) {
@@ -200,7 +227,6 @@
         real[i] = samples[i] * hannWindow[i];
       }
 
-      // Bit-reversal permutation
       let j = 0;
       for (let i = 0; i < FFT_SIZE; i++) {
         if (i < j) {
@@ -215,7 +241,6 @@
         j += m;
       }
 
-      // Butterfly stages
       for (let size = 2; size <= FFT_SIZE; size <<= 1) {
         const half = size >> 1;
         const theta = (-2 * Math.PI) / size;
@@ -249,7 +274,7 @@
       return mags;
     }
 
-    // --- 2. SPECTRUM BAND SEPARATION (Ported from SpectrumAnalyzer.java) ---
+    // --- 2. SPECTRUM BAND SEPARATION ---
     function analyzeBands(mags) {
       let bassSum = 0, midSum = 0, trebleSum = 0;
       for (let i = 1; i <= 6; i++) bassSum += mags[i];
@@ -263,7 +288,7 @@
       };
     }
 
-    // --- 3. ADAPTIVE BEAT DETECTOR (Ported from BeatDetector.java) ---
+    // --- 3. ADAPTIVE BEAT DETECTOR ---
     const bassHistory = new Float64Array(43);
     let historyIdx = 0, historyCount = 0, cooldown = 0;
 
@@ -284,7 +309,7 @@
       return false;
     }
 
-    // --- 4. NEWTONIAN PARTICLE ENGINE (Ported from Particle.java) ---
+    // --- 4. NEWTONIAN PARTICLE ENGINE (Monochrome Grayscale) ---
     class Particle {
       constructor(cx, cy) {
         this.x = cx;
@@ -295,7 +320,7 @@
         this.vy = Math.sin(angle) * speed;
         this.baseSize = 2.0 + Math.random() * 3.5;
         this.orbitPref = 110 + Math.random() * 150;
-        this.hueOffset = (Math.random() - 0.5) * 55;
+        this.shadeOffset = (Math.random() - 0.5) * 20;
       }
 
       update(cx, cy, bass, mid, treble, beatHit) {
@@ -325,10 +350,10 @@
       }
 
       draw(bass, mid, treble) {
-        const hue = (266 - treble * 210 - mid * 45 + this.hueOffset + 360) % 360;
-        const light = Math.min(72, 48 + treble * 24 + bass * 12);
+        // Shifts cleanly between charcoal (#14161a) and mid-slate gray (#6b7280)
+        const lightness = Math.max(10, Math.min(58, 22 + treble * 28 + mid * 12 + this.shadeOffset));
         const radius = (this.baseSize + bass * 4.5 + treble * 2.5) * 0.5;
-        ctx.fillStyle = `hsl(${hue}, 88%, ${light}%)`;
+        ctx.fillStyle = `hsl(220, 10%, ${lightness}%)`;
         ctx.beginPath();
         ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -340,7 +365,7 @@
     const radialBins = new Float64Array(64);
     const timeBuffer = new Float32Array(FFT_SIZE);
 
-    // --- 5. WEB AUDIO PIPELINE (Built-in Synth + Live Mic) ---
+    // --- 5. WEB AUDIO PIPELINE ---
     let audioCtx = null, analyser = null, synthTimer = null, micStream = null;
     let visualMode = 1, inputGain = 1.0, showHud = true, manualBeat = false;
     let smoothBass = 0, smoothMid = 0, smoothTreble = 0;
@@ -365,7 +390,6 @@
       synthTimer = setInterval(() => {
         const now = audioCtx.currentTime;
 
-        // Kick drum on every 2nd 16th-note beat
         if (step % 4 === 0) {
           const kickOsc = audioCtx.createOscillator();
           const kickGain = audioCtx.createGain();
@@ -380,7 +404,6 @@
           kickOsc.stop(now + 0.29);
         }
 
-        // Midrange bassline pulse
         const bassOsc = audioCtx.createOscillator();
         const bassGain = audioCtx.createGain();
         bassOsc.type = 'sawtooth';
@@ -392,7 +415,6 @@
         bassOsc.start(now);
         bassOsc.stop(now + 0.17);
 
-        // High-frequency treble arpeggio & hi-hat shimmer
         if (step % 2 === 1) {
           const hatOsc = audioCtx.createOscillator();
           const hatGain = audioCtx.createGain();
@@ -407,7 +429,7 @@
         }
 
         step++;
-      }, 135); // ~111 BPM electronic groove
+      }, 135);
 
       document.getElementById('hud-source').textContent = 'INPUT: SYNTHWAVE DEMO GENERATOR (111 BPM)';
       document.getElementById('overlay').style.display = 'none';
@@ -440,7 +462,7 @@
     document.getElementById('btn-demo').addEventListener('click', startBuiltInSynth);
     document.getElementById('btn-mic').addEventListener('click', startMicrophone);
 
-    // --- 6. CONTROLS & RENDER LOOP ---
+    // --- 6. CONTROLS & MONOCHROME RENDER LOOP ---
     function setMode(m) {
       visualMode = m;
       [1, 2, 3].forEach(id => document.getElementById('m' + id).classList.toggle('active', id === m));
@@ -498,20 +520,28 @@
       }
 
       const cx = width / 2, cy = height / 2;
-      if (beatHit) shockwaves.push({ r: 55 + smoothBass * 110, alpha: 0.95 });
+      if (beatHit) shockwaves.push({ r: 55 + smoothBass * 110, alpha: 0.85 });
 
-      // Semi-transparent fade for motion ribbons
-      ctx.fillStyle = visualMode === 2 ? 'rgba(10, 10, 16, 0.30)' : 'rgba(10, 10, 16, 0.14)';
+      // Light-gray off-white trail fade
+      ctx.fillStyle = visualMode === 2 ? 'rgba(245, 246, 248, 0.34)' : 'rgba(245, 246, 248, 0.18)';
       ctx.fillRect(0, 0, width, height);
 
-      // Shockwaves
-      ctx.lineWidth = 2.5;
+      // Subtle architectural crosshair grid in center
+      ctx.strokeStyle = 'rgba(180, 186, 198, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - 260, cy); ctx.lineTo(cx + 260, cy);
+      ctx.moveTo(cx, cy - 260); ctx.lineTo(cx, cy + 260);
+      ctx.stroke();
+
+      // Dark-gray shockwaves
+      ctx.lineWidth = 2.0;
       for (let i = shockwaves.length - 1; i >= 0; i--) {
         const sw = shockwaves[i];
         sw.r += 8.5;
         sw.alpha -= 0.026;
         if (sw.alpha <= 0) { shockwaves.splice(i, 1); continue; }
-        ctx.strokeStyle = `rgba(160, 90, 255, ${sw.alpha})`;
+        ctx.strokeStyle = `rgba(44, 48, 56, ${sw.alpha})`;
         ctx.beginPath();
         ctx.arc(cx, cy, sw.r, 0, Math.PI * 2);
         ctx.stroke();
@@ -523,7 +553,7 @@
         if (visualMode === 1 || visualMode === 3) p.draw(smoothBass, smoothMid, smoothTreble);
       }
 
-      // Radial Spectrum (Mode 2)
+      // Radial Spectrum (Mode 2) — Dark gray to slate gray gradient
       if (visualMode === 2) {
         const baseR = 120 + smoothBass * 45;
         ctx.lineWidth = 4;
@@ -531,8 +561,8 @@
         for (let i = 0; i < 64; i++) {
           const angle = (2 * Math.PI * i) / 64 - Math.PI / 2;
           const len = 15 + radialBins[i] * 170;
-          const hue = 280 - (i / 64) * 235;
-          ctx.strokeStyle = `hsl(${hue}, 88%, 55%)`;
+          const light = 12 + (i / 64) * 42;
+          ctx.strokeStyle = `hsl(220, 10%, ${light}%)`;
           ctx.beginPath();
           ctx.moveTo(cx + Math.cos(angle) * baseR, cy + Math.sin(angle) * baseR);
           ctx.lineTo(cx + Math.cos(angle) * (baseR + len), cy + Math.sin(angle) * (baseR + len));
@@ -540,9 +570,9 @@
         }
       }
 
-      // Oscilloscope (Mode 3)
+      // Oscilloscope (Mode 3) — Crisp dark charcoal line
       if (visualMode === 3) {
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.78)';
+        ctx.strokeStyle = 'rgba(20, 22, 26, 0.85)';
         ctx.lineWidth = 2.2;
         ctx.beginPath();
         for (let i = 0; i < FFT_SIZE; i += 2) {
@@ -553,21 +583,26 @@
         ctx.stroke();
       }
 
-      // 3-Band Harmonic Core
-      ctx.fillStyle = 'rgba(110, 30, 200, 0.55)';
+      // 3-Band Harmonic Core (Light Gray -> Dark Gray -> White)
+      ctx.fillStyle = 'rgba(160, 166, 178, 0.32)';
       ctx.beginPath();
       ctx.arc(cx, cy, 42 + smoothBass * 90, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = 'rgba(0, 220, 255, 0.8)';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(44, 48, 56, 0.85)';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.arc(cx, cy, 30 + smoothMid * 70, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = 'rgba(255, 245, 140, 0.92)';
+      ctx.fillStyle = '#14161a';
       ctx.beginPath();
-      ctx.arc(cx, cy, 12 + smoothTreble * 42, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 12 + smoothTreble * 36, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4 + smoothTreble * 12, 0, Math.PI * 2);
       ctx.fill();
 
       // Update HUD
